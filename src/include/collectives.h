@@ -95,6 +95,7 @@ DECL(Reduce)
 DECL2(AllGather, Sum, /*undefForFloat=*/0)
 DECL(ReduceScatter)
 DECL(AllReduce)
+DECL(YodaAllReduce)
 DECL5(SendRecv, RING, SIMPLE, Sum, int8_t)
 
 extern __device__ void NCCL_ONERANK_REDUCE_NAME(PreMulSum, int8_t)();

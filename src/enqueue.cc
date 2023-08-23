@@ -87,7 +87,8 @@ static const ncclKernelMatch ncclKerns[1+ncclNumTypes+NCCL_NUM_FUNCTIONS*ncclNum
   NCCL_FUNCS2(Reduce, /*reduction=*/1),
   NCCL_FUNCS2(AllGather, /*reduction=*/0),
   NCCL_FUNCS2(ReduceScatter, /*reduction=*/1),
-  NCCL_FUNCS2(AllReduce, /*reduction=*/1)
+  NCCL_FUNCS2(AllReduce, /*reduction=*/1),
+  NCCL_FUNCS2(YodaAllReduce, /*reduction=*/1)
 };
 
 static ncclResult_t computeColl(struct ncclInfo* info /* input */, int* workFuncIndex, struct ncclWorkElem* work, struct ncclProxyOp* proxyOp /* output */);
@@ -1234,6 +1235,7 @@ static ncclResult_t getPatternInfo(struct ncclInfo* info) {
         info->algorithm == NCCL_ALGO_NVLS ? ncclPatternNvls :
         ncclPatternRing; break;
     case ncclFuncAllReduce:
+    case ncclFuncYodaAllReduce:
       info->pattern =
         info->algorithm == NCCL_ALGO_NVLS ? ncclPatternNvls :
         info->algorithm == NCCL_ALGO_NVLS_TREE ? ncclPatternNvlsTree :

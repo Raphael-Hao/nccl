@@ -155,10 +155,10 @@ ncclResult_t ncclTopoTuneModel(struct ncclComm* comm, int minCompCap, int maxCom
   for (int a=0; a<NCCL_NUM_ALGORITHMS; a++) hw[a] = nNodes == 1 ? intraHw[a] : NCCL_HW_NET;
 
   for (int coll=0; coll<NCCL_NUM_FUNCTIONS; coll++) {
-    int nsteps = coll == ncclFuncAllReduce ? 2*(nRanks-1) :
+    int nsteps = coll == ncclFuncAllReduce ||coll== ncclFuncYodaAllReduce ? 2*(nRanks-1) :
       coll == ncclFuncReduceScatter || coll == ncclFuncAllGather ? nRanks-1 :
       nRanks;
-    int nInterSteps = coll == ncclFuncAllReduce ? (nNodes > 1 ? 2*nNodes :0) :
+    int nInterSteps = coll == ncclFuncAllReduce||coll== ncclFuncYodaAllReduce ? (nNodes > 1 ? 2*nNodes :0) :
       coll == ncclFuncReduceScatter || coll == ncclFuncAllGather ? nNodes-1 :
       nNodes;
 
@@ -175,7 +175,7 @@ ncclResult_t ncclTopoTuneModel(struct ncclComm* comm, int minCompCap, int maxCom
         float busBw = graphs[a]->nChannels * bw;
 
         // Various model refinements
-        if (a == NCCL_ALGO_RING && p == NCCL_PROTO_LL) { busBw = std::min(llMaxBw, busBw * ((nNodes > 1 || coll == ncclFuncAllReduce || coll == ncclFuncReduce) ? 1.0/4.0 : 1.0/3.0)); }
+        if (a == NCCL_ALGO_RING && p == NCCL_PROTO_LL) { busBw = std::min(llMaxBw, busBw * ((nNodes > 1 || coll == ncclFuncAllReduce || coll == ncclFuncReduce ||coll == ncclFuncYodaAllReduce) ? 1.0/4.0 : 1.0/3.0)); }
         if (a == NCCL_ALGO_RING && p == NCCL_PROTO_LL128) busBw = std::min(busBw * (ppn < 2 ? 0.7 : 0.92 /*120.0/128.0*/), graphs[a]->nChannels*perChMaxRingLL128Bw);
         if (a == NCCL_ALGO_TREE) busBw = std::min(busBw*.92, graphs[a]->nChannels*perChMaxTreeBw);
         if (a == NCCL_ALGO_TREE && p == NCCL_PROTO_LL) busBw = std::min(busBw*1.0/3.8, llMaxBw);
@@ -288,13 +288,13 @@ ncclResult_t ncclTopoTuneModel(struct ncclComm* comm, int minCompCap, int maxCom
       switch (minCompCap) {
       case 70: pEnable &= 1; break;
       case 80: pEnable &= 1; break;
-      case 90: pEnable &= !(CUDART_VERSION == 11080 && c == ncclFuncAllReduce && a == NCCL_ALGO_RING && comm->nRanks == 2); break;
+      case 90: pEnable &= !(CUDART_VERSION == 11080 && (c == ncclFuncAllReduce ||c == ncclFuncYodaAllReduce) && a == NCCL_ALGO_RING && comm->nRanks == 2); break;
       default: pEnable &= 0; break;
       }
     }
     if (pEnable == 0) comm->bandwidths[c][a][p] = 0;
     // Never disable ring for non-allreduce operations. That allows to run real apps with NCCL_ALGO=TREE.
-    if (a == NCCL_ALGO_RING && c != ncclFuncAllReduce) continue;
+    if (a == NCCL_ALGO_RING && (c != ncclFuncAllReduce || c != ncclFuncYodaAllReduce)) continue;
     if (algoEnable[a] == 0) comm->bandwidths[c][a][p] = 0;
   }
 
@@ -388,7 +388,7 @@ ncclResult_t ncclTopoGetAlgoTime(struct ncclInfo* info, int algorithm, int proto
   if (algorithm == NCCL_ALGO_TREE && logSize < 23) bw *= treeCorrectionFactor[protocol][logSize];
   if (info->nChannels != 0) bw = bw / info->comm->nChannels * info->nChannels;
   if (algorithm == NCCL_ALGO_RING && protocol == NCCL_PROTO_SIMPLE && info->comm->nNodes > 1
-      && info->coll == ncclFuncAllReduce && info->nBytes/(info->comm->nChannels*info->comm->nRanks) >= 64) {
+      && (info->coll == ncclFuncAllReduce || info->coll == ncclFuncYodaAllReduce) && info->nBytes/(info->comm->nChannels*info->comm->nRanks) >= 64) {
     lat *= info->comm->minCompCap < 80 ? 1.9 : 1.4; // Plateau effect of ring
   }
   // Tree pipelining saves latency in aggregation cases

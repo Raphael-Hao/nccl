@@ -27,6 +27,7 @@
 #define NVTX_SID_Reduce        8
 #define NVTX_SID_Send          9
 #define NVTX_SID_Recv          10
+#define NVTX_SID_YodaAllReduce 11
 
 // Define static schema ID for the reduction operation.
 #define NVTX_PAYLOAD_ENTRY_NCCL_REDOP 11 + NVTX_PAYLOAD_ENTRY_TYPE_SCHEMA_ID_STATIC_START
